@@ -49,6 +49,15 @@ button:hover {
   50% { box-shadow: 0 0 30px rgba(96, 165, 250, 0.7); }
   100% { box-shadow: 0 0 10px rgba(96, 165, 250, 0.3); }
 }
+#loader {
+  text-align: center;
+  color: #60a5fa;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.4; }
+}
 
   </style>
 
@@ -93,6 +102,7 @@ button:hover {
       <p>Select a photo or video. You will receive a 10‑character secure code.</p>
       <input type="file" id="file" accept="image/*,video/*" />
       <button class="mt" onclick="encryptAndUpload()">Generate Code</button>
+      <div class="mt hidden" id="loader">🔐 Encrypting...</div>
       <div class="mt code" id="codeBox" hidden></div>
       <button class="mt secondary hidden" id="copyBtn" onclick="copyCode()">Copy Code</button>
     </div>
@@ -150,8 +160,11 @@ async function deriveKey(code, salt) {
 }
 
 async function encryptAndUpload() {
+  loader.classList.remove('hidden');
+
   const file = document.getElementById('file').files[0];
   if (!file) return alert('Select a file');
+loader.classList.add('hidden');
 
   const code = generateCode();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -178,6 +191,7 @@ async function encryptAndUpload() {
   codeBox.hidden = false;
   copyBtn.classList.remove('hidden');
 }
+loader.classList.add('hidden');
 
 function copyCode() {
   navigator.clipboard.writeText(codeBox.textContent);
@@ -217,6 +231,7 @@ async function decryptAndOpen() {
 </script>
 </body>
 </html>
+
 
 
 
