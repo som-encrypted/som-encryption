@@ -120,87 +120,124 @@ window.addEventListener('DOMContentLoaded', () => {
   window.showUpload = ()=>{ welcome.classList.add('hidden'); uploadCard.classList.remove('hidden'); };
   window.showAccess = ()=>{ welcome.classList.add('hidden'); accessCard.classList.remove('hidden'); };
 
-  function generateCode(){
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    return Array.from(crypto.getRandomValues(new Uint8Array(10))).map(x=>chars[x%chars.length]).join('');
-  }
+ 
+   function generateCode(){
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(10)))
+    .map(x => chars[x % chars.length]).join('');
+}
 
-  async function deriveKey(code,salt){
-    const baseKey = await crypto.subtle.importKey('raw',enc.encode(code),'PBKDF2',false,['deriveKey']);
-    return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'}, baseKey,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-  }
+async function deriveKey(code, salt){
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(code),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
 
-  window.encryptAndUpload = async ()=>{
-    loader.classList.remove('hidden');
-    const files = fileInput.files;
-    if(!files || files.length===0){ loader.classList.add('hidden'); return alert('Select at least 1 file'); }
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt, iterations:200000, hash:'SHA-256' },
+    baseKey,
+    { name:'AES-GCM', length:256 },
+    false,
+    ['encrypt','decrypt']
+  );
+}
 
-    const zip = new JSZip();
-    for(let file of files) zip.file(file.name,file);
-    const zipContent = await zip.generateAsync({type:"uint8array"});
+window.encryptAndUpload = async () => {
+  loader.classList.remove('hidden');
 
-    const code = generateCode();
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const key = await deriveKey(code,salt);
-
-    const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, zipContent);
-    const blob = new Blob([encrypted],{type:"application/octet-stream"});
-    const storageRef = ref(storage, "files/"+code+".enc");
-    await uploadBytes(storageRef, blob);
-
-    // Firestore metadata
-    await setDoc(doc(db,"files",code),{
-      salt:btoa(String.fromCharCode(...salt)),
-      iv:btoa(String.fromCharCode(...iv)),
-      path:"files/"+code+".enc"
-    });
-
-    codeBox.textContent = code;
-    codeBox.hidden=false;
-    copyBtn.classList.remove('hidden');
+  const files = fileInput.files;
+  if (!files || files.length === 0) {
     loader.classList.add('hidden');
-  };
+    alert('Select at least 1 file');
+    return;
+  }
 
-  window.copyCode = ()=>{
-    navigator.clipboard.writeText(codeBox.textContent);
-    copyBtn.textContent='Copied ✔';
-  };
+  const zip = new JSZip();
+  for (let file of files) zip.file(file.name, file);
+  const zipContent = await zip.generateAsync({ type:'uint8array' });
 
-  window.decryptAndOpen = async ()=>{
-    const codeVal = accessCode.value.trim().toUpperCase();
-    const docRef = doc(db,"files",codeVal);
-    const docSnap = await getDoc(docRef);
-    if(!docSnap.exists()) return alert("Invalid code");
+  const code = generateCode();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveKey(code, salt);
 
-    try {
-      const data = docSnap.data();
-      const salt = Uint8Array.from(atob(data.salt),c=>c.charCodeAt(0));
-      const iv = Uint8Array.from(atob(data.iv),c=>c.charCodeAt(0));
-      const storageRef = ref(storage,data.path);
-      const url = await getDownloadURL(storageRef);
-      const resp = await fetch(url);
-      const encryptedData = new Uint8Array(await resp.arrayBuffer());
-      const key = await deriveKey(codeVal,salt);
-      const decrypted = await crypto.subtle.decrypt({name:'AES-GCM',iv},key,encryptedData);
-      const zip = await JSZip.loadAsync(decrypted);
-      viewer.innerHTML="";
-      for(let filename of Object.keys(zip.files)){
-        const fileData = await zip.files[filename].async("blob");
-        if(fileData.type.startsWith("image/")){
-          const img=document.createElement("img"); img.src=URL.createObjectURL(fileData); viewer.appendChild(img);
-        } else if(fileData.type.startsWith("video/")){
-          const vid=document.createElement("video"); vid.src=URL.createObjectURL(fileData); vid.controls=true; vid.autoplay=true; viewer.appendChild(vid);
-        } else {
-          const a = document.createElement("a"); a.href=URL.createObjectURL(fileData); a.download=filename; a.textContent="Download "+filename; viewer.appendChild(a);
-        }
-      }
-    } catch(e){
-      alert("Failed to decrypt: "+e.message);
+  const encrypted = await crypto.subtle.encrypt(
+    { name:'AES-GCM', iv },
+    key,
+    zipContent
+  );
+
+  const blob = new Blob([encrypted], { type:'application/octet-stream' });
+  const storageRef = ref(storage, `files/${code}.enc`);
+  await uploadBytes(storageRef, blob);
+
+  await setDoc(doc(db, 'files', code), {
+    salt: btoa(String.fromCharCode(...salt)),
+    iv:   btoa(String.fromCharCode(...iv)),
+    path: `files/${code}.enc`
+  });
+
+  codeBox.textContent = code;
+  codeBox.hidden = false;
+  copyBtn.classList.remove('hidden');
+  loader.classList.add('hidden');
+};
+
+window.copyCode = () => {
+  navigator.clipboard.writeText(codeBox.textContent);
+  copyBtn.textContent = 'Copied ✔';
+};
+
+window.decryptAndOpen = async () => {
+  const codeVal = accessCode.value.trim().toUpperCase();
+  const snap = await getDoc(doc(db, 'files', codeVal));
+
+  if (!snap.exists()) {
+    alert('Invalid code');
+    return;
+  }
+
+  const data = snap.data();
+  const salt = Uint8Array.from(atob(data.salt), c => c.charCodeAt(0));
+  const iv   = Uint8Array.from(atob(data.iv),   c => c.charCodeAt(0));
+
+  const storageRef = ref(storage, data.path);
+  const url = await getDownloadURL(storageRef);
+  const resp = await fetch(url);
+  const encryptedData = new Uint8Array(await resp.arrayBuffer());
+
+  const key = await deriveKey(codeVal, salt);
+  const decrypted = await crypto.subtle.decrypt(
+    { name:'AES-GCM', iv },
+    key,
+    encryptedData
+  );
+
+  const zip = await JSZip.loadAsync(decrypted);
+  viewer.innerHTML = '';
+
+  for (const filename in zip.files) {
+    const blob = await zip.files[filename].async('blob');
+
+    if (blob.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(blob);
+      viewer.appendChild(img);
+    } else if (blob.type.startsWith('video/')) {
+      const vid = document.createElement('video');
+      vid.src = URL.createObjectURL(blob);
+      vid.controls = true;
+      vid.autoplay = true;
+      viewer.appendChild(vid);
     }
-  };
-});
+  }
+};
+ 
 </script>
 
 </body>
 </html>
+
