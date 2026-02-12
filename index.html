@@ -172,7 +172,9 @@ function generateCode() {
 }
 
 async function deriveKey(code, salt) {
-  const baseKey = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']);
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']
+  );
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
     baseKey,
@@ -182,9 +184,7 @@ async function deriveKey(code, salt) {
   );
 }
 
-
-    name: file.name,
-    async function encryptAndUpload() {
+async function encryptAndUpload() {
   loader.classList.remove('hidden');
 
   const files = document.getElementById('file').files;
@@ -219,6 +219,7 @@ async function deriveKey(code, salt) {
     data: btoa(String.fromCharCode(...new Uint8Array(encrypted)))
   };
 
+  // Store locally; replace with Firebase upload if desired
   localStorage.setItem('som_' + code, JSON.stringify(payload));
 
   codeBox.textContent = code;
@@ -227,7 +228,6 @@ async function deriveKey(code, salt) {
   loader.classList.add('hidden');
 }
 
-
 function copyCode() {
   navigator.clipboard.writeText(codeBox.textContent);
   copyBtn.textContent = 'Copied ✔';
@@ -235,7 +235,7 @@ function copyCode() {
 
 async function decryptAndOpen() {
   const code = accessCode.value.trim().toUpperCase();
-  const raw = localStorage.getItem('som_' + code); // ya Firebase doc fetch if using db
+  const raw = localStorage.getItem('som_' + code); // replace with Firebase fetch if needed
   if (!raw) return alert('Invalid code');
 
   const payload = JSON.parse(raw);
@@ -258,12 +258,22 @@ async function decryptAndOpen() {
         img.src = URL.createObjectURL(fileData);
         img.style.maxWidth = '100%';
         img.style.marginBottom = '12px';
-        img.classList.add('zoomIn');
         viewer.appendChild(img);
       } else if (fileData.type.startsWith("video/")) {
-
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(fileData);
+        video.controls = true;
+        video.style.maxWidth = '100%';
+        video.style.marginBottom = '12px';
+        viewer.appendChild(video);
+      }
+    }
+  }
+}
 </script>
+
 </body>
 </html>
+
 
 
