@@ -23,6 +23,34 @@
   @keyframes pulse{0%{box-shadow:0 0 10px rgba(96,165,250,0.3);}50%{box-shadow:0 0 30px rgba(96,165,250,0.7);}100%{box-shadow:0 0 10px rgba(96,165,250,0.3);}}
   @keyframes blink{50%{opacity:0.4;}}
   @keyframes zoomIn{from{transform:scale(0.9); opacity:0;}to{transform:scale(1);opacity:1;}}
+  /* Hover animation for features */
+.feature {
+  transition: all 0.3s ease;
+}
+.feature:hover {
+  color: #60a5fa;
+  transform: translateX(6px);
+  text-shadow: 0 0 6px rgba(96, 165, 250, 0.7);
+}
+
+/* Button hover animations */
+.btn-hover {
+  transition: all 0.3s ease;
+}
+.btn-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.7);
+}
+
+/* Small pulse animation for emojis in headings */
+h1 span {
+  display: inline-block;
+  animation: pulseEmoji 1.2s infinite;
+}
+@keyframes pulseEmoji {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
 </style>
 
 <!-- JSZip -->
@@ -145,11 +173,42 @@
 <div class="wrap">
   <!-- Welcome -->
   <div class="card" id="welcome">
-    <h1>🔐 Welcome to <span style="color:#60a5fa">som.encryption</span></h1>
-    <p>Securely share photos & videos — end-to-end encryption, no login.</p>
-    <button class="mt" onclick="showUpload()">⬆ Upload Files</button>
-    <button class="mt secondary" onclick="showAccess()">🔓 Access Files</button>
-  </div>
+  <h1>🔐 Welcome to <span style="color:#60a5fa">som.encryption</span></h1>
+  <p><strong>som.encryption</strong> is a privacy-first platform designed to securely share photos and videos — no login, no tracking, end-to-end encryption.</p>
+
+  <p>✨ <strong>How it works:</strong></p>
+  <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+    <li class="feature">Select photo(s) or video(s) you want to share.</li>
+    <li class="feature">Files are <strong>encrypted directly on your device</strong>.</li>
+    <li class="feature">A <strong>10-character secret code</strong> is generated.</li>
+    <li class="feature">Anyone with the code can access your file(s).</li>
+    <li class="feature">No server can read your data — end-to-end encrypted by default.</li>
+  </ul>
+
+  <p>🛡 <strong>Your privacy comes first:</strong></p>
+  <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+    <li class="feature">No sign-up or login required.</li>
+    <li class="feature">No file scanning or tracking.</li>
+    <li class="feature">No passwords stored anywhere.</li>
+    <li class="feature">Secure and temporary storage on Firebase.</li>
+  </ul>
+
+  <p>🚀 <strong>Features:</strong></p>
+  <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+    <li class="feature">Upload multiple files at once.</li>
+    <li class="feature">Instant access anywhere using a secret code.</li>
+    <li class="feature">Supports images, videos, and multiple file types via ZIP.</li>
+    <li class="feature">Interactive UI with encryption progress loader.</li>
+  </ul>
+
+  <p style="margin-top:18px; color:#cbd5f5;">Choose what you want to do:</p>
+  <button class="mt btn-hover" onclick="showUpload()">⬆ Upload Files Securely</button>
+  <button class="mt secondary btn-hover" onclick="showAccess()">🔓 Access Shared Files</button>
+
+  <p style="margin-top:20px; font-size:0.85rem; color:#64748b; text-align:center;">
+    Built for simplicity • Powered by end-to-end encryption • No servers read your files
+  </p>
+</div>
 
   <!-- Upload -->
   <div class="card hidden" id="uploadCard">
@@ -171,3 +230,4 @@
 </div>
 </body>
 </html>
+
