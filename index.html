@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <title>som encryption – Secure Encrypted Photo & Video Sharing</title>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
 <meta name="description" content="som encryption lets you securely share photos and videos using end-to-end encryption and secret access codes. No login, no tracking." />
 
 <meta name="keywords" content="som encryption, secure file sharing, encrypted image sharing, private photo sharing" />
@@ -79,6 +80,20 @@ button:hover {
     opacity: 1;
   }
 }
+.zoomIn {
+  animation: zoomIn 0.4s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 
   </style>
 
@@ -121,7 +136,7 @@ button:hover {
     <div class="card hidden" id="uploadCard">
       <h1>Upload</h1>
       <p>Select a photo or video. You will receive a 10‑character secure code.</p>
-      <input type="file" id="file" accept="image/*,video/*" />
+      <input type="file" id="file" accept="image/*,video/*" multiple />
       <button class="mt" onclick="encryptAndUpload()">Generate Code</button>
       <div class="mt hidden" id="loader">🔐 Encrypting...</div>
       <div class="mt code" id="codeBox" hidden></div>
@@ -180,12 +195,23 @@ async function deriveKey(code, salt) {
   );
 }
 
-async function encryptAndUpload() {
+
+    name: file.name,
+    async function encryptAndUpload() {
   loader.classList.remove('hidden');
 
-  const file = document.getElementById('file').files[0];
-  if (!file) return alert('Select a file');
-loader.classList.add('hidden');
+  const files = document.getElementById('file').files;
+  if (!files || files.length === 0) {
+    loader.classList.add('hidden');
+    return alert('Select at least 1 file');
+  }
+
+  // Create a zip of all files using JSZip
+  const zip = new JSZip();
+  for (let file of files) {
+    zip.file(file.name, file);
+  }
+  const zipContent = await zip.generateAsync({ type: "uint8array" });
 
   const code = generateCode();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -195,24 +221,25 @@ loader.classList.add('hidden');
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    await file.arrayBuffer()
+    zipContent
   );
 
   const payload = {
-    name: file.name,
-    type: file.type,
+    name: "multiple_files.zip",
+    type: "application/zip",
     salt: btoa(String.fromCharCode(...salt)),
     iv: btoa(String.fromCharCode(...iv)),
     data: btoa(String.fromCharCode(...new Uint8Array(encrypted)))
   };
 
-  await db.collection('files').doc(code).set(payload);
+  localStorage.setItem('som_' + code, JSON.stringify(payload));
 
   codeBox.textContent = code;
   codeBox.hidden = false;
   copyBtn.classList.remove('hidden');
+  loader.classList.add('hidden');
 }
-loader.classList.add('hidden');
+
 
 function copyCode() {
   navigator.clipboard.writeText(codeBox.textContent);
@@ -221,11 +248,10 @@ function copyCode() {
 
 async function decryptAndOpen() {
   const code = accessCode.value.trim().toUpperCase();
-  const doc = await db.collection('files').doc(code).get();
-  if (!doc.exists) return alert('Invalid code');
- 
-  const payload = doc.data();
+  const raw = localStorage.getItem('som_' + code); // ya Firebase doc fetch if using db
+  if (!raw) return alert('Invalid code');
 
+  const payload = JSON.parse(raw);
   const salt = Uint8Array.from(atob(payload.salt), c => c.charCodeAt(0));
   const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
   const data = Uint8Array.from(atob(payload.data), c => c.charCodeAt(0));
@@ -235,30 +261,20 @@ async function decryptAndOpen() {
   const blob = new Blob([decrypted], { type: payload.type });
 
   viewer.innerHTML = '';
-  if (payload.type.startsWith('image/')) {
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(blob);
-    img.style.maxWidth = '100%';
-    viewer.appendChild(img);
-  } else if (payload.type.startsWith('video/')) {
-    const vid = document.createElement('video');
-    vid.src = URL.createObjectURL(blob);
-    vid.controls = true;
-    vid.autoplay = true;
-    vid.style.maxWidth = '100%';
-    viewer.appendChild(vid);
-  }
-}
+
+  if (payload.type === "application/zip") {
+    const zip = await JSZip.loadAsync(blob);
+    for (let filename of Object.keys(zip.files)) {
+      const fileData = await zip.files[filename].async("blob");
+      if (fileData.type.startsWith("image/")) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(fileData);
+        img.style.maxWidth = '100%';
+        img.style.marginBottom = '12px';
+        img.classList.add('zoomIn');
+        viewer.appendChild(img);
+      } else if (fileData.type.startsWith("video/")) {
+
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
