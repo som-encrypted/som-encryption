@@ -17,6 +17,10 @@
     .code { font-size:1.4rem; letter-spacing:4px; text-align:center; background:#020617; border:1px dashed #334155; padding:14px; border-radius:12px; }
     .hidden { display:none; }
   </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"></script>
+
 </head>
 <body>
   <div class="wrap">
@@ -143,7 +147,7 @@ async function encryptAndUpload() {
     data: btoa(String.fromCharCode(...new Uint8Array(encrypted)))
   };
 
-  localStorage.setItem('som_' + code, JSON.stringify(payload));
+  await db.collection('files').doc(code).set(payload);
 
   codeBox.textContent = code;
   codeBox.hidden = false;
@@ -157,10 +161,11 @@ function copyCode() {
 
 async function decryptAndOpen() {
   const code = accessCode.value.trim().toUpperCase();
-  const raw = localStorage.getItem('som_' + code);
-  if (!raw) return alert('Invalid code');
+  const doc = await db.collection('files').doc(code).get();
+  if (!doc.exists) return alert('Invalid code');
+ 
+  const payload = doc.data();
 
-  const payload = JSON.parse(raw);
   const salt = Uint8Array.from(atob(payload.salt), c => c.charCodeAt(0));
   const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
   const data = Uint8Array.from(atob(payload.data), c => c.charCodeAt(0));
@@ -187,4 +192,5 @@ async function decryptAndOpen() {
 </script>
 </body>
 </html>
+
 
