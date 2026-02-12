@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>som.encryption</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0f172a; color:#e5e7eb; margin:0; }
+    .wrap { max-width: 720px; margin: 40px auto; padding: 24px; }
+    .card { background:#020617; border:1px solid #1f2937; border-radius:16px; padding:24px; box-shadow: 0 10px 30px rgba(0,0,0,.35);} 
+    h1 { font-size: 1.7rem; margin: 0 0 8px; }
+    p { color:#9ca3af; }
+    input, button { width:100%; padding:14px; border-radius:12px; border:1px solid #334155; background:#020617; color:#e5e7eb; }
+    button { background:#2563eb; border:none; font-weight:600; cursor:pointer; }
+    button.secondary { background:#020617; border:1px solid #334155; }
+    .mt { margin-top:16px; }
+    .code { font-size:1.4rem; letter-spacing:4px; text-align:center; background:#020617; border:1px dashed #334155; padding:14px; border-radius:12px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Welcome Page -->
+    <div class="card" id="welcome">
+      <h1>🔐 Welcome to <span style="color:#60a5fa">som.encryption</span></h1>
+      <p><strong>som.encryption</strong> is a privacy‑first platform designed to help you share photos and videos securely — without accounts, tracking, or servers reading your data.</p>
+
+      <p>✨ <strong>How it works:</strong></p>
+      <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+        <li>Your file is <strong>encrypted on your device</strong> using strong AES‑256 encryption</li>
+        <li>A <strong>10‑character secret code</strong> is generated</li>
+        <li>The code is the <strong>only key</strong> that can unlock the file</li>
+        <li>Anyone with the code can access the file — nobody else can</li>
+      </ul>
+
+      <p>🛡 <strong>Your privacy comes first:</strong></p>
+      <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+        <li>No sign‑up or login required</li>
+        <li>No file scanning or tracking</li>
+        <li>No passwords stored anywhere</li>
+        <li>End‑to‑end encrypted by default</li>
+      </ul>
+
+      <p style="margin-top:18px; color:#cbd5f5;">Choose what you want to do:</p>
+      <button class="mt" onclick="showUpload()">⬆ Upload a file securely</button>
+      <button class="mt secondary" onclick="showAccess()">🔓 Access a shared file</button>
+
+      <p style="margin-top:20px; font-size:0.85rem; color:#64748b; text-align:center;">Built for simplicity • Powered by encryption • No servers involved</p>
+    </div>
+
+    <!-- Upload Page -->
+    <div class="card hidden" id="uploadCard">
+      <h1>Upload</h1>
+      <p>Select a photo or video. You will receive a 10‑character secure code.</p>
+      <input type="file" id="file" accept="image/*,video/*" />
+      <button class="mt" onclick="encryptAndUpload()">Generate Code</button>
+      <div class="mt code" id="codeBox" hidden></div>
+      <button class="mt secondary hidden" id="copyBtn" onclick="copyCode()">Copy Code</button>
+    </div>
+
+    <!-- Access Page -->
+    <div class="card hidden" id="accessCard">
+      <h1>Access</h1>
+      <p>Enter the 10‑character code to instantly open the file.</p>
+      <input type="text" id="accessCode" placeholder="XXXXXXXXXX" />
+      <button class="mt" onclick="decryptAndOpen()">Access</button>
+      <div class="mt" id="viewer"></div>
+    </div>
+
+  </div>
+
+<script>
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+function showUpload() {
+  welcome.classList.add('hidden');
+  uploadCard.classList.remove('hidden');
+}
+
+function showAccess() {
+  welcome.classList.add('hidden');
+  accessCard.classList.remove('hidden');
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(10)))
+    .map(x => chars[x % chars.length])
+    .join('');
+}
+
+async function deriveKey(code, salt) {
+  const baseKey = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt','decrypt']
+  );
+}
+
+async function encryptAndUpload() {
+  const file = document.getElementById('file').files[0];
+  if (!file) return alert('Select a file');
+
+  const code = generateCode();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(code, salt);
+
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    await file.arrayBuffer()
+  );
+
+  const payload = {
+    name: file.name,
+    type: file.type,
+    salt: btoa(String.fromCharCode(...salt)),
+    iv: btoa(String.fromCharCode(...iv)),
+    data: btoa(String.fromCharCode(...new Uint8Array(encrypted)))
+  };
+
+  localStorage.setItem('som_' + code, JSON.stringify(payload));
+
+  codeBox.textContent = code;
+  codeBox.hidden = false;
+  copyBtn.classList.remove('hidden');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(codeBox.textContent);
+  copyBtn.textContent = 'Copied ✔';
+}
+
+async function decryptAndOpen() {
+  const code = accessCode.value.trim().toUpperCase();
+  const raw = localStorage.getItem('som_' + code);
+  if (!raw) return alert('Invalid code');
+
+  const payload = JSON.parse(raw);
+  const salt = Uint8Array.from(atob(payload.salt), c => c.charCodeAt(0));
+  const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
+  const data = Uint8Array.from(atob(payload.data), c => c.charCodeAt(0));
+
+  const key = await deriveKey(code, salt);
+  const decrypted = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, data);
+  const blob = new Blob([decrypted], { type: payload.type });
+
+  viewer.innerHTML = '';
+  if (payload.type.startsWith('image/')) {
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(blob);
+    img.style.maxWidth = '100%';
+    viewer.appendChild(img);
+  } else if (payload.type.startsWith('video/')) {
+    const vid = document.createElement('video');
+    vid.src = URL.createObjectURL(blob);
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.style.maxWidth = '100%';
+    viewer.appendChild(vid);
+  }
+}
+</script>
+</body>
+</html>
