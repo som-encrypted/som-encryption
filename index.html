@@ -19,48 +19,78 @@
   .hidden { display:none; }
   #loader { text-align:center; color:#60a5fa; animation: blink 1s infinite; }
   #viewer img,#viewer video{animation: zoomIn 0.4s ease; max-width:100%; margin-bottom:12px;}
-  @keyframes fadeIn{from{opacity:0; transform:translateY(20px);}to{opacity:1; transform:translateY(0);}}
-  @keyframes pulse{0%{box-shadow:0 0 10px rgba(96,165,250,0.3);}50%{box-shadow:0 0 30px rgba(96,165,250,0.7);}100%{box-shadow:0 0 10px rgba(96,165,250,0.3);}}
-  @keyframes blink{50%{opacity:0.4;}}
-  @keyframes zoomIn{from{transform:scale(0.9); opacity:0;}to{transform:scale(1);opacity:1;}}
-  /* Hover animation for features */
-.feature {
-  transition: all 0.3s ease;
-}
-.feature:hover {
-  color: #60a5fa;
-  transform: translateX(6px);
-  text-shadow: 0 0 6px rgba(96, 165, 250, 0.7);
-}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(20px);}to{opacity:1; transform:translateY(0);} }
+  @keyframes pulse{0%{box-shadow:0 0 10px rgba(96,165,250,0.3);}50%{box-shadow:0 0 30px rgba(96,165,250,0.7);}100%{box-shadow:0 0 10px rgba(96,165,250,0.3);} }
+  @keyframes blink{50%{opacity:0.4;} }
+  @keyframes zoomIn{from{transform:scale(0.9); opacity:0;}to{transform:scale(1);opacity:1;} }
 
-/* Button hover animations */
-.btn-hover {
-  transition: all 0.3s ease;
-}
-.btn-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 15px rgba(37, 99, 235, 0.7);
-}
-
-/* Small pulse animation for emojis in headings */
-h1 span {
-  display: inline-block;
-  animation: pulseEmoji 1.2s infinite;
-}
-@keyframes pulseEmoji {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
+  .feature { transition: all 0.3s ease; }
+  .feature:hover { color:#60a5fa; transform:translateX(6px); text-shadow:0 0 6px rgba(96,165,250,0.7);}
+  .btn-hover { transition: all 0.3s ease; }
+  .btn-hover:hover { transform:translateY(-2px); box-shadow:0 0 15px rgba(37,99,235,0.7);}
+  h1 span { display:inline-block; animation:pulseEmoji 1.2s infinite; }
+  @keyframes pulseEmoji {0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
 </style>
 
 <!-- JSZip -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
+</head>
+<body>
+<div class="wrap">
+  <!-- Welcome -->
+  <div class="card" id="welcome">
+    <h1>🔐 Welcome to <span>som.encryption</span></h1>
+    <p><strong>som.encryption</strong> is a privacy-first platform designed to securely share photos and videos — no login, no tracking, end-to-end encryption.</p>
+
+    <p>✨ <strong>How it works:</strong></p>
+    <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+      <li class="feature">Select photo(s) or video(s) you want to share.</li>
+      <li class="feature">Files are <strong>encrypted directly on your device</strong>.</li>
+      <li class="feature">A <strong>10-character secret code</strong> is generated.</li>
+      <li class="feature">Anyone with the code can access your file(s).</li>
+      <li class="feature">No server can read your data — end-to-end encrypted by default.</li>
+    </ul>
+
+    <p>🛡 <strong>Your privacy comes first:</strong></p>
+    <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
+      <li class="feature">No sign-up or login required.</li>
+      <li class="feature">No file scanning or tracking.</li>
+      <li class="feature">No passwords stored anywhere.</li>
+      <li class="feature">Secure storage on Firebase.</li>
+    </ul>
+
+    <p style="margin-top:18px; color:#cbd5f5;">Choose what you want to do:</p>
+    <button class="mt btn-hover" onclick="showUpload()">⬆ Upload Files Securely</button>
+    <button class="mt secondary btn-hover" onclick="showAccess()">🔓 Access Shared Files</button>
+  </div>
+
+  <!-- Upload -->
+  <div class="card hidden" id="uploadCard">
+    <h1>Upload</h1>
+    <input type="file" id="file" multiple accept="image/*,video/*">
+    <button class="mt" onclick="encryptAndUpload()">Generate Code</button>
+    <div class="mt hidden" id="loader">🔐 Encrypting & Uploading...</div>
+    <div class="mt code" id="codeBox" hidden></div>
+    <button class="mt secondary hidden" id="copyBtn" onclick="copyCode()">Copy Code</button>
+  </div>
+
+  <!-- Access -->
+  <div class="card hidden" id="accessCard">
+    <h1>Access</h1>
+    <input type="text" id="accessCode" placeholder="Enter Code">
+    <button class="mt" onclick="decryptAndOpen()">Access</button>
+    <div class="mt" id="viewer"></div>
+  </div>
+</div>
+
+<!-- Firebase + JS -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+
+window.addEventListener('DOMContentLoaded', () => {
   // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyB0vasTDUqN4ztpiD_gzx0jrfOLEWx9AW0",
@@ -86,8 +116,9 @@ h1 span {
   const fileInput = document.getElementById('file');
   const accessCode = document.getElementById('accessCode');
 
-  function showUpload(){ welcome.classList.add('hidden'); uploadCard.classList.remove('hidden'); }
-  function showAccess(){ welcome.classList.add('hidden'); accessCard.classList.remove('hidden'); }
+  // Show/hide pages
+  window.showUpload = ()=>{ welcome.classList.add('hidden'); uploadCard.classList.remove('hidden'); };
+  window.showAccess = ()=>{ welcome.classList.add('hidden'); accessCard.classList.remove('hidden'); };
 
   function generateCode(){
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -96,16 +127,10 @@ h1 span {
 
   async function deriveKey(code,salt){
     const baseKey = await crypto.subtle.importKey('raw',enc.encode(code),'PBKDF2',false,['deriveKey']);
-    return crypto.subtle.deriveKey(
-      {name:'PBKDF2', salt, iterations:200000, hash:'SHA-256'},
-      baseKey,
-      {name:'AES-GCM', length:256},
-      false,
-      ['encrypt','decrypt']
-    );
+    return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'}, baseKey,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
   }
 
-  async function encryptAndUpload(){
+  window.encryptAndUpload = async ()=>{
     loader.classList.remove('hidden');
     const files = fileInput.files;
     if(!files || files.length===0){ loader.classList.add('hidden'); return alert('Select at least 1 file'); }
@@ -120,7 +145,6 @@ h1 span {
     const key = await deriveKey(code,salt);
 
     const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, zipContent);
-
     const blob = new Blob([encrypted],{type:"application/octet-stream"});
     const storageRef = ref(storage, "files/"+code+".enc");
     await uploadBytes(storageRef, blob);
@@ -136,98 +160,47 @@ h1 span {
     codeBox.hidden=false;
     copyBtn.classList.remove('hidden');
     loader.classList.add('hidden');
-  }
+  };
 
-  function copyCode(){ navigator.clipboard.writeText(codeBox.textContent); copyBtn.textContent='Copied ✔'; }
+  window.copyCode = ()=>{
+    navigator.clipboard.writeText(codeBox.textContent);
+    copyBtn.textContent='Copied ✔';
+  };
 
-  async function decryptAndOpen(){
+  window.decryptAndOpen = async ()=>{
     const codeVal = accessCode.value.trim().toUpperCase();
     const docRef = doc(db,"files",codeVal);
     const docSnap = await getDoc(docRef);
     if(!docSnap.exists()) return alert("Invalid code");
 
-    const data = docSnap.data();
-    const salt = Uint8Array.from(atob(data.salt),c=>c.charCodeAt(0));
-    const iv = Uint8Array.from(atob(data.iv),c=>c.charCodeAt(0));
-    const storageRef = ref(storage,data.path);
-    const url = await getDownloadURL(storageRef);
-    const resp = await fetch(url);
-    const encryptedData = new Uint8Array(await resp.arrayBuffer());
-    const key = await deriveKey(codeVal,salt);
-    const decrypted = await crypto.subtle.decrypt({name:'AES-GCM',iv},key,encryptedData);
-
-    const zip = await JSZip.loadAsync(decrypted);
-    viewer.innerHTML="";
-    for(let filename of Object.keys(zip.files)){
-      const fileData = await zip.files[filename].async("blob");
-      if(fileData.type.startsWith("image/")){
-        const img=document.createElement("img"); img.src=URL.createObjectURL(fileData); viewer.appendChild(img);
-      } else if(fileData.type.startsWith("video/")){
-        const vid=document.createElement("video"); vid.src=URL.createObjectURL(fileData); vid.controls=true; vid.autoplay=true; viewer.appendChild(vid);
+    try {
+      const data = docSnap.data();
+      const salt = Uint8Array.from(atob(data.salt),c=>c.charCodeAt(0));
+      const iv = Uint8Array.from(atob(data.iv),c=>c.charCodeAt(0));
+      const storageRef = ref(storage,data.path);
+      const url = await getDownloadURL(storageRef);
+      const resp = await fetch(url);
+      const encryptedData = new Uint8Array(await resp.arrayBuffer());
+      const key = await deriveKey(codeVal,salt);
+      const decrypted = await crypto.subtle.decrypt({name:'AES-GCM',iv},key,encryptedData);
+      const zip = await JSZip.loadAsync(decrypted);
+      viewer.innerHTML="";
+      for(let filename of Object.keys(zip.files)){
+        const fileData = await zip.files[filename].async("blob");
+        if(fileData.type.startsWith("image/")){
+          const img=document.createElement("img"); img.src=URL.createObjectURL(fileData); viewer.appendChild(img);
+        } else if(fileData.type.startsWith("video/")){
+          const vid=document.createElement("video"); vid.src=URL.createObjectURL(fileData); vid.controls=true; vid.autoplay=true; viewer.appendChild(vid);
+        } else {
+          const a = document.createElement("a"); a.href=URL.createObjectURL(fileData); a.download=filename; a.textContent="Download "+filename; viewer.appendChild(a);
+        }
       }
+    } catch(e){
+      alert("Failed to decrypt: "+e.message);
     }
-  }
+  };
+});
 </script>
-</head>
-<body>
-<div class="wrap">
-  <!-- Welcome -->
-  <div class="card" id="welcome">
-  <h1>🔐 Welcome to <span style="color:#60a5fa">som.encryption</span></h1>
-  <p><strong>som.encryption</strong> is a privacy-first platform designed to securely share photos and videos — no login, no tracking, end-to-end encryption.</p>
 
-  <p>✨ <strong>How it works:</strong></p>
-  <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
-    <li class="feature">Select photo(s) or video(s) you want to share.</li>
-    <li class="feature">Files are <strong>encrypted directly on your device</strong>.</li>
-    <li class="feature">A <strong>10-character secret code</strong> is generated.</li>
-    <li class="feature">Anyone with the code can access your file(s).</li>
-    <li class="feature">No server can read your data — end-to-end encrypted by default.</li>
-  </ul>
-
-  <p>🛡 <strong>Your privacy comes first:</strong></p>
-  <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
-    <li class="feature">No sign-up or login required.</li>
-    <li class="feature">No file scanning or tracking.</li>
-    <li class="feature">No passwords stored anywhere.</li>
-    <li class="feature">Secure and temporary storage on Firebase.</li>
-  </ul>
-
-  <p>🚀 <strong>Features:</strong></p>
-  <ul style="color:#9ca3af; line-height:1.6; padding-left:18px;">
-    <li class="feature">Upload multiple files at once.</li>
-    <li class="feature">Instant access anywhere using a secret code.</li>
-    <li class="feature">Supports images, videos, and multiple file types via ZIP.</li>
-    <li class="feature">Interactive UI with encryption progress loader.</li>
-  </ul>
-
-  <p style="margin-top:18px; color:#cbd5f5;">Choose what you want to do:</p>
-  <button class="mt btn-hover" onclick="showUpload()">⬆ Upload Files Securely</button>
-  <button class="mt secondary btn-hover" onclick="showAccess()">🔓 Access Shared Files</button>
-
-  <p style="margin-top:20px; font-size:0.85rem; color:#64748b; text-align:center;">
-    Built for simplicity • Powered by end-to-end encryption • No servers read your files
-  </p>
-</div>
-
-  <!-- Upload -->
-  <div class="card hidden" id="uploadCard">
-    <h1>Upload</h1>
-    <input type="file" id="file" multiple accept="image/*,video/*">
-    <button class="mt" onclick="encryptAndUpload()">Generate Code</button>
-    <div class="mt hidden" id="loader">🔐 Encrypting & Uploading...</div>
-    <div class="mt code" id="codeBox" hidden></div>
-    <button class="mt secondary hidden" id="copyBtn" onclick="copyCode()">Copy Code</button>
-  </div>
-
-  <!-- Access -->
-  <div class="card hidden" id="accessCard">
-    <h1>Access</h1>
-    <input type="text" id="accessCode" placeholder="Enter Code">
-    <button class="mt" onclick="decryptAndOpen()">Access</button>
-    <div class="mt" id="viewer"></div>
-  </div>
-</div>
 </body>
 </html>
-
