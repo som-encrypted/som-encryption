@@ -58,6 +58,21 @@ button:hover {
 @keyframes blink {
   50% { opacity: 0.4; }
 }
+#viewer img,
+#viewer video {
+  animation: zoomIn 0.4s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 
   </style>
 
@@ -231,6 +246,7 @@ async function decryptAndOpen() {
 </script>
 </body>
 </html>
+
 
 
 
